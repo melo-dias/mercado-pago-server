@@ -10,7 +10,7 @@ const client = new MercadoPagoConfig({
 
 const preference = new Preference(client);
 
-// 👉 Verificar pagamento (agora consulta no banco)
+// 👉 Verificar pagamento (consulta no banco)
 router.post('/verificar-pagamento', async (req, res) => {
   const { userId } = req.body;
   try {
@@ -30,7 +30,7 @@ router.post('/verificar-pagamento', async (req, res) => {
   }
 });
 
-// 👉 Gerar pagamento Mercado Pago
+// 👉 Gerar pagamento com Mercado Pago
 router.post('/gerar-pagamento', async (req, res) => {
   const { userId, valor } = req.body;
   try {
@@ -68,23 +68,30 @@ router.post('/gerar-pagamento', async (req, res) => {
 // 👉 Webhook Mercado Pago (atualiza status no banco)
 router.post('/webhook', async (req, res) => {
   const evento = req.body;
+  console.log('Webhook recebido:', JSON.stringify(evento, null, 2)); // debug
 
   try {
-    if (evento.action === 'payment.updated' && evento.data && evento.data.id) {
+    if (
+      evento?.action === 'payment.updated' &&
+      evento?.data?.id
+    ) {
       const paymentId = evento.data.id;
 
-      // Buscar os dados do pagamento pelo ID
       const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
         headers: {
           Authorization: `Bearer ${process.env.MP_TOKEN}`
         }
       });
-      const paymentData = await mpResponse.json();
 
-      const preferenceId = paymentData.order?.id;
+      if (!mpResponse.ok) {
+        console.error('Erro ao consultar o pagamento na API do Mercado Pago');
+        return res.status(500).json({ error: 'Erro ao consultar pagamento' });
+      }
+
+      const paymentData = await mpResponse.json();
+      const preferenceId = paymentData.preference_id || paymentData.order?.id;
       const status = paymentData.status;
 
-      // Atualizar status no banco de dados
       if (preferenceId) {
         await db.query(
           'UPDATE pagamentos SET status = $1 WHERE preference_id = $2',
@@ -92,12 +99,14 @@ router.post('/webhook', async (req, res) => {
         );
         console.log(`Pagamento ${paymentId} atualizado para status: ${status}`);
       }
+
+      return res.status(200).json({ updated: true });
     }
 
-    res.status(200).json({ received: true });
+    return res.status(400).json({ error: 'Formato de webhook inválido' });
   } catch (err) {
     console.error('Erro ao registrar webhook:', err);
-    res.status(500).json({ error: 'Erro interno' });
+    return res.status(500).json({ error: 'Erro interno no webhook' });
   }
 });
 
