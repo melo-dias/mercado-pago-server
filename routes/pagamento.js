@@ -1,29 +1,19 @@
-
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
 const router = express.Router();
 const { MercadoPagoConfig, Preference } = require('mercadopago');
+const db = require('../lib/db'); // conexão PostgreSQL
 
 const client = new MercadoPagoConfig({
   accessToken: process.env.MP_TOKEN || 'SUA_CHAVE_DO_MERCADO_PAGO',
 });
 
 const preference = new Preference(client);
-const dataPath = path.join(__dirname, '../db/pagamentos.json');
 
-function salvarRegistro(dado) {
-  let atual = [];
-  if (fs.existsSync(dataPath)) {
-    atual = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
-  }
-  atual.push({ ...dado, data: new Date().toISOString() });
-  fs.writeFileSync(dataPath, JSON.stringify(atual, null, 2));
-}
-
+// 👉 Verificar pagamento (padrão: pendente)
 router.post('/verificar-pagamento', async (req, res) => {
   const { userId } = req.body;
   try {
+    // Aqui você pode buscar do banco se quiser futuramente
     return res.json({ status: 'pendente' });
   } catch (err) {
     console.error('Erro ao verificar pagamento', err);
@@ -31,6 +21,7 @@ router.post('/verificar-pagamento', async (req, res) => {
   }
 });
 
+// 👉 Gerar pagamento Mercado Pago
 router.post('/gerar-pagamento', async (req, res) => {
   const { userId, valor } = req.body;
   try {
@@ -53,12 +44,10 @@ router.post('/gerar-pagamento', async (req, res) => {
       }
     });
 
-    salvarRegistro({
-      userId,
-      valor,
-      preference_id: result.id,
-      status: 'aguardando_pagamento'
-    });
+    await db.query(
+      'INSERT INTO pagamentos (user_id, valor, status, preference_id) VALUES ($1, $2, $3, $4)',
+      [userId, valor, 'pendente', result.id]
+    );
 
     res.json({ linkPagamento: result.init_point });
   } catch (err) {
@@ -67,26 +56,41 @@ router.post('/gerar-pagamento', async (req, res) => {
   }
 });
 
-// Webhook para Mercado Pago
+// 👉 Webhook Mercado Pago
 router.post('/webhook', async (req, res) => {
   const evento = req.body;
-  salvarRegistro({ origem: 'webhook', evento });
-  res.status(200).json({ received: true });
+
+  try {
+    await db.query(
+      'INSERT INTO pagamentos (user_id, valor, status, preference_id) VALUES ($1, $2, $3, $4)',
+      [
+        evento?.data?.user_id || 'desconhecido',
+        0,
+        'webhook_evento',
+        evento?.data?.id || null
+      ]
+    );
+    res.status(200).json({ received: true });
+  } catch (err) {
+    console.error('Erro ao registrar webhook:', err);
+    res.status(500).json({ error: 'Erro interno' });
+  }
 });
 
-// Rota para salvar cálculo
+// 👉 Salvar cálculo da nota
 router.post('/salvar-calculo', async (req, res) => {
   const { userId, dp, cfsd, nep, dem, resultado } = req.body;
-  salvarRegistro({
-    tipo: 'calculo',
-    userId,
-    dp,
-    cfsd,
-    nep,
-    dem,
-    resultado
-  });
-  res.json({ ok: true });
+  try {
+    await db.query(
+      `INSERT INTO calculos (user_id, dp, cfsd, nep, dem, nota_final) 
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [userId, dp, cfsd, nep, dem, resultado]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Erro ao salvar cálculo:', err);
+    res.status(500).json({ error: 'Erro ao salvar cálculo' });
+  }
 });
 
 module.exports = router;
