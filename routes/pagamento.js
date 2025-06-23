@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { MercadoPagoConfig, Preference } = require('mercadopago');
 const db = require('../lib/db'); // conexão PostgreSQL
+const fetch = require('node-fetch');
 
 const client = new MercadoPagoConfig({
   accessToken: process.env.MP_TOKEN || 'SUA_CHAVE_DO_MERCADO_PAGO',
@@ -9,12 +10,20 @@ const client = new MercadoPagoConfig({
 
 const preference = new Preference(client);
 
-// 👉 Verificar pagamento (padrão: pendente)
+// 👉 Verificar pagamento (agora consulta no banco)
 router.post('/verificar-pagamento', async (req, res) => {
   const { userId } = req.body;
   try {
-    // Aqui você pode buscar do banco se quiser futuramente
-    return res.json({ status: 'pendente' });
+    const result = await db.query(
+      'SELECT status FROM pagamentos WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1',
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.json({ status: 'pendente' });
+    }
+
+    return res.json({ status: result.rows[0].status });
   } catch (err) {
     console.error('Erro ao verificar pagamento', err);
     return res.status(500).json({ error: 'Erro interno' });
@@ -56,20 +65,35 @@ router.post('/gerar-pagamento', async (req, res) => {
   }
 });
 
-// 👉 Webhook Mercado Pago
+// 👉 Webhook Mercado Pago (atualiza status no banco)
 router.post('/webhook', async (req, res) => {
   const evento = req.body;
 
   try {
-    await db.query(
-      'INSERT INTO pagamentos (user_id, valor, status, preference_id) VALUES ($1, $2, $3, $4)',
-      [
-        evento?.data?.user_id || 'desconhecido',
-        0,
-        'webhook_evento',
-        evento?.data?.id || null
-      ]
-    );
+    if (evento.action === 'payment.updated' && evento.data && evento.data.id) {
+      const paymentId = evento.data.id;
+
+      // Buscar os dados do pagamento pelo ID
+      const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+        headers: {
+          Authorization: `Bearer ${process.env.MP_TOKEN}`
+        }
+      });
+      const paymentData = await mpResponse.json();
+
+      const preferenceId = paymentData.order?.id;
+      const status = paymentData.status;
+
+      // Atualizar status no banco de dados
+      if (preferenceId) {
+        await db.query(
+          'UPDATE pagamentos SET status = $1 WHERE preference_id = $2',
+          [status, preferenceId]
+        );
+        console.log(`Pagamento ${paymentId} atualizado para status: ${status}`);
+      }
+    }
+
     res.status(200).json({ received: true });
   } catch (err) {
     console.error('Erro ao registrar webhook:', err);
