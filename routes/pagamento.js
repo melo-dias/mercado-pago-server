@@ -89,15 +89,17 @@ router.post('/webhook', async (req, res) => {
       }
 
       const paymentData = await mpResponse.json();
-      const preferenceId = paymentData.preference_id || paymentData.order?.id;
       const status = paymentData.status;
+      const userId = paymentData.external_reference; // ⚠️ Usar external_reference = userId
 
-      if (preferenceId) {
+      if (userId) {
         await db.query(
-          'UPDATE pagamentos SET status = $1 WHERE preference_id = $2',
-          [status, preferenceId]
+          'UPDATE pagamentos SET status = $1 WHERE user_id = $2 ORDER BY created_at DESC LIMIT 1',
+          [status, userId]
         );
-        console.log(`Pagamento ${paymentId} atualizado para status: ${status}`);
+        console.log(`✅ Pagamento ${paymentId} do usuário ${userId} atualizado para status: ${status}`);
+      } else {
+        console.warn('⚠️ external_reference (userId) não encontrado no pagamento');
       }
 
       return res.status(200).json({ updated: true });
@@ -105,10 +107,11 @@ router.post('/webhook', async (req, res) => {
 
     return res.status(400).json({ error: 'Formato de webhook inválido' });
   } catch (err) {
-    console.error('Erro ao registrar webhook:', err);
+    console.error('❌ Erro ao registrar webhook:', err);
     return res.status(500).json({ error: 'Erro interno no webhook' });
   }
 });
+
 
 // 👉 Listar histórico de cálculos de um usuário
 router.get('/calculos/:userId', async (req, res) => {
