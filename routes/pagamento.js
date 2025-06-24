@@ -110,6 +110,26 @@ router.post('/webhook', async (req, res) => {
   }
 });
 
+// 👉 Listar histórico de cálculos de um usuário
+router.get('/calculos/:userId', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const result = await db.query(
+      `SELECT dp, cfsd, nep, dem, nota_final, created_at 
+       FROM calculos 
+       WHERE user_id = $1 
+       ORDER BY created_at DESC LIMIT 10`,
+      [userId]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Erro ao buscar histórico:', err);
+    res.status(500).json({ error: 'Erro ao buscar histórico' });
+  }
+});
+
+
 // 👉 Salvar cálculo da nota
 router.post('/salvar-calculo', async (req, res) => {
   const { userId, dp, cfsd, nep, dem, resultado } = req.body;
