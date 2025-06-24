@@ -122,7 +122,18 @@ router.get('/calculos/:userId', async (req, res) => {
       [userId]
     );
 
-    res.json(result.rows);
+    const formatted = result.rows.map(row => ({
+      date: row.created_at,
+      result: row.nota_final,
+      details: {
+        desempenhoProfissional: row.dp,
+        notaCFSD: row.cfsd,
+        escolaridade: row.nep,
+        demerito: row.dem
+      }
+    }));
+
+    res.json(formatted);
   } catch (err) {
     console.error('Erro ao buscar histórico:', err);
     res.status(500).json({ error: 'Erro ao buscar histórico' });
