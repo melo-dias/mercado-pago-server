@@ -93,16 +93,19 @@ router.post('/webhook', async (req, res) => {
       const paymentData = await mpResponse.json();
 
       const status = paymentData.status; // ex: "approved"
-      const userId = paymentData.external_reference; // ID que você passou no momento da criação do pagamento
+      const userId = paymentData.external_reference; // ID que você passou na criação do pagamento
 
       if (userId) {
-        // Atualiza o status do pagamento mais recente desse usuário no banco
+        // Atualiza o status do último pagamento do usuário
         await db.query(
           `UPDATE pagamentos 
            SET status = $1 
-           WHERE user_id = $2 
-           ORDER BY created_at DESC 
-           LIMIT 1`,
+           WHERE id = (
+             SELECT id FROM pagamentos 
+             WHERE user_id = $2 
+             ORDER BY created_at DESC 
+             LIMIT 1
+           )`,
           [status, userId]
         );
 
@@ -120,8 +123,6 @@ router.post('/webhook', async (req, res) => {
     return res.status(500).json({ error: 'Erro interno no servidor ao lidar com webhook' });
   }
 });
-
-
 
 // 👉 Listar histórico de cálculos de um usuário
 router.get('/calculos/:userId', async (req, res) => {
