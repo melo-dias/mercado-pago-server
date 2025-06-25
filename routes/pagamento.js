@@ -68,15 +68,17 @@ router.post('/gerar-pagamento', async (req, res) => {
 // 👉 Webhook Mercado Pago (atualiza status no banco)
 router.post('/webhook', async (req, res) => {
   const evento = req.body;
-  console.log('Webhook recebido:', JSON.stringify(evento, null, 2)); // debug
+  console.log('📥 Webhook recebido:', JSON.stringify(evento, null, 2)); // log para debug
 
   try {
+    // Verifica se é um evento de atualização de pagamento
     if (
       evento?.action === 'payment.updated' &&
       evento?.data?.id
     ) {
       const paymentId = evento.data.id;
 
+      // Consulta os detalhes completos do pagamento na API do Mercado Pago
       const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
         headers: {
           Authorization: `Bearer ${process.env.MP_TOKEN}`
@@ -84,33 +86,41 @@ router.post('/webhook', async (req, res) => {
       });
 
       if (!mpResponse.ok) {
-        console.error('Erro ao consultar o pagamento na API do Mercado Pago');
+        console.error('❌ Erro ao consultar o pagamento na API do Mercado Pago');
         return res.status(500).json({ error: 'Erro ao consultar pagamento' });
       }
 
       const paymentData = await mpResponse.json();
-      const status = paymentData.status;
-      const userId = paymentData.external_reference; // ⚠️ Usar external_reference = userId
+
+      const status = paymentData.status; // ex: "approved"
+      const userId = paymentData.external_reference; // ID que você passou no momento da criação do pagamento
 
       if (userId) {
+        // Atualiza o status do pagamento mais recente desse usuário no banco
         await db.query(
-          'UPDATE pagamentos SET status = $1 WHERE user_id = $2 ORDER BY created_at DESC LIMIT 1',
+          `UPDATE pagamentos 
+           SET status = $1 
+           WHERE user_id = $2 
+           ORDER BY created_at DESC 
+           LIMIT 1`,
           [status, userId]
         );
+
         console.log(`✅ Pagamento ${paymentId} do usuário ${userId} atualizado para status: ${status}`);
       } else {
-        console.warn('⚠️ external_reference (userId) não encontrado no pagamento');
+        console.warn('⚠️ external_reference (userId) não encontrado no paymentData:', paymentData);
       }
 
       return res.status(200).json({ updated: true });
     }
 
-    return res.status(400).json({ error: 'Formato de webhook inválido' });
+    return res.status(400).json({ error: 'Evento de webhook inválido ou irrelevante' });
   } catch (err) {
-    console.error('❌ Erro ao registrar webhook:', err);
-    return res.status(500).json({ error: 'Erro interno no webhook' });
+    console.error('❌ Erro ao processar webhook:', err);
+    return res.status(500).json({ error: 'Erro interno no servidor ao lidar com webhook' });
   }
 });
+
 
 
 // 👉 Listar histórico de cálculos de um usuário
