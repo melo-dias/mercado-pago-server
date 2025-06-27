@@ -44,9 +44,9 @@ router.post('/gerar-pagamento', async (req, res) => {
         }],
         metadata: { userId },
         back_urls: {
-          success: 'https://seu-site.com/sucesso',
-          failure: 'https://seu-site.com/erro',
-          pending: 'https://seu-site.com/pendente'
+          success: 'https://google.com?resultado=sucesso',
+          failure: 'https://google.com?resultado=erro',
+          pending: 'https://google.com?resultado=pendente'
         },
         auto_return: 'approved',
         external_reference: userId
