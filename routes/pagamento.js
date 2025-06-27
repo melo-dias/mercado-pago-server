@@ -10,25 +10,31 @@ const client = new MercadoPagoConfig({
 
 const preference = new Preference(client);
 
-// 👉 Verificar pagamento (consulta no banco)
+// ✅ Verificar pagamento por preference_id
 router.post('/verificar-pagamento', async (req, res) => {
-  const { userId } = req.body;
+  const { preferenceId } = req.body;
+
+  if (!preferenceId) {
+    return res.status(400).json({ error: 'preferenceId é obrigatório' });
+  }
+
   try {
     const result = await db.query(
-      'SELECT status FROM pagamentos WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1',
-      [userId]
+      'SELECT status FROM pagamentos WHERE preference_id = $1 LIMIT 1',
+      [preferenceId]
     );
 
     if (result.rows.length === 0) {
-      return res.json({ status: 'pendente' });
+      return res.json({ status: 'pendente' }); // ou 'nao_encontrado'
     }
 
     return res.json({ status: result.rows[0].status });
   } catch (err) {
-    console.error('Erro ao verificar pagamento', err);
+    console.error('Erro ao verificar pagamento:', err);
     return res.status(500).json({ error: 'Erro interno' });
   }
 });
+
 
 // 👉 Gerar pagamento com Mercado Pago
 router.post('/gerar-pagamento', async (req, res) => {
