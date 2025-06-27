@@ -38,41 +38,35 @@ router.post('/verificar-pagamento', async (req, res) => {
 
 router.post('/gerar-pagamento', async (req, res) => {
   const { userId, valor } = req.body;
-
   try {
     const result = await preference.create({
       body: {
-        items: [
-          {
-            title: 'Acesso ao cálculo da nota',
-            quantity: 1,
-            currency_id: 'BRL',
-            unit_price: parseFloat(valor),
-          },
-        ],
+        items: [{
+          title: 'Acesso ao cálculo da nota',
+          quantity: 1,
+          currency_id: 'BRL',
+          unit_price: parseFloat(valor)
+        }],
         metadata: { userId },
         back_urls: {
           success: 'https://google.com?resultado=sucesso',
           failure: 'https://google.com?resultado=erro',
-          pending: 'https://google.com?resultado=pendente',
+          pending: 'https://google.com?resultado=pendente'
         },
         auto_return: 'approved',
-        external_reference: userId,
-      },
+        external_reference: userId
+      }
     });
 
     const preferenceId = result.body.id;
     const linkPagamento = result.body.init_point;
 
-    // 👉 Salvar no banco de dados
     await db.query(
       'INSERT INTO pagamentos (user_id, valor, status, preference_id) VALUES ($1, $2, $3, $4)',
       [userId, valor, 'pendente', preferenceId]
     );
 
-    // ✅ Retornar tanto o link quanto o ID
     res.json({ linkPagamento, preferenceId });
-
   } catch (err) {
     console.error('Erro ao gerar pagamento:', err);
     res.status(500).json({ error: 'Erro ao gerar pagamento' });
