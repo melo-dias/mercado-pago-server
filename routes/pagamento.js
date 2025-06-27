@@ -171,4 +171,21 @@ router.post('/salvar-calculo', async (req, res) => {
   }
 });
 
+// 👉 Excluir histórico de cálculo de um usuário
+router.delete('/calculos/:userId', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const result = await db.query(
+      'DELETE FROM calculos WHERE user_id = $1',
+      [userId]
+    );
+
+    res.json({ sucesso: true, mensagem: `Histórico de cálculos do usuário ${userId} excluído.` });
+  } catch (err) {
+    console.error('Erro ao excluir histórico:', err);
+    res.status(500).json({ error: 'Erro ao excluir histórico' });
+  }
+});
+
+
 module.exports = router;
