@@ -1,40 +1,17 @@
+// pagamento.js
 const express = require('express');
 const router = express.Router();
-const mercadopago = require('mercadopago');
+const { MercadoPagoConfig, Preference } = require('mercadopago');
 const db = require('../lib/db');
 const fetch = require('node-fetch');
 
-// Configurar o SDK corretamente para v2.8.0
-mercadopago.configure({
-  access_token: process.env.MP_TOKEN || 'SUA_CHAVE_DO_MERCADO_PAGO',
+// ✅ Configuração correta para SDK v3
+const mp = new MercadoPagoConfig({
+  accessToken: process.env.MP_TOKEN || 'SUA_CHAVE_DO_MERCADO_PAGO',
 });
+const preference = new Preference(mp);
 
-// ✅ Verificar pagamento
-router.post('/verificar-pagamento', async (req, res) => {
-  const { preferenceId } = req.body;
-
-  if (!preferenceId) {
-    return res.status(400).json({ error: 'preferenceId é obrigatório' });
-  }
-
-  try {
-    const result = await db.query(
-      'SELECT status FROM pagamentos WHERE preference_id = $1 LIMIT 1',
-      [preferenceId]
-    );
-
-    if (result.rows.length === 0) {
-      return res.json({ status: 'pendente' });
-    }
-
-    return res.json({ status: result.rows[0].status });
-  } catch (err) {
-    console.error('Erro ao verificar pagamento:', err);
-    return res.status(500).json({ error: 'Erro interno' });
-  }
-});
-
-// ✅ Gerar pagamento
+// ✅ Rota corrigida
 router.post('/gerar-pagamento', async (req, res) => {
   const { userId, valor } = req.body;
 
@@ -63,7 +40,8 @@ router.post('/gerar-pagamento', async (req, res) => {
       external_reference: userId
     };
 
-    const result = await mercadopago.preferences.create(preferenceData);
+    // ⚠️ AQUI: o body precisa estar dentro de { body: ... }
+    const result = await preference.create({ body: preferenceData });
 
     const preferenceId = result.body.id;
     const linkPagamento = result.body.init_point;
@@ -83,6 +61,31 @@ router.post('/gerar-pagamento', async (req, res) => {
   } catch (err) {
     console.error('❌ Erro ao gerar pagamento:', err);
     return res.status(500).json({ error: 'Erro ao gerar pagamento' });
+  }
+});
+
+// ✅ Verificar pagamento
+router.post('/verificar-pagamento', async (req, res) => {
+  const { preferenceId } = req.body;
+
+  if (!preferenceId) {
+    return res.status(400).json({ error: 'preferenceId é obrigatório' });
+  }
+
+  try {
+    const result = await db.query(
+      'SELECT status FROM pagamentos WHERE preference_id = $1 LIMIT 1',
+      [preferenceId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.json({ status: 'pendente' });
+    }
+
+    return res.json({ status: result.rows[0].status });
+  } catch (err) {
+    console.error('Erro ao verificar pagamento:', err);
+    return res.status(500).json({ error: 'Erro interno' });
   }
 });
 
