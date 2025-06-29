@@ -29,15 +29,25 @@ if (process.env.NODE_ENV !== 'production') {
 
 const app = express();
 
+// ✅ CORREÇÃO: Configurar trust proxy para Railway
+app.set('trust proxy', 1);
+
 // Middlewares de segurança
 app.use(helmet());
 
-// Rate limiting
+// Rate limiting - CORRIGIDO para funcionar com proxy
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
   max: 100, // limite de 100 requests por IP
   message: {
     error: 'Muitas requisições deste IP, tente novamente em 15 minutos.'
+  },
+  // ✅ CORREÇÃO: Configurar para funcionar com proxy
+  standardHeaders: true,
+  legacyHeaders: false,
+  // ✅ CORREÇÃO: Usar função personalizada para key
+  keyGenerator: (req) => {
+    return req.ip || req.connection.remoteAddress || 'unknown';
   }
 });
 app.use('/api/', limiter);
