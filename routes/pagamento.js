@@ -11,7 +11,6 @@ const mp = new MercadoPagoConfig({
 });
 const preference = new Preference(mp);
 
-// ✅ Rota corrigida
 router.post('/gerar-pagamento', async (req, res) => {
   const { userId, valor } = req.body;
 
@@ -22,14 +21,12 @@ router.post('/gerar-pagamento', async (req, res) => {
     }
 
     const preferenceData = {
-      items: [
-        {
-          title: 'Acesso ao cálculo da nota',
-          quantity: 1,
-          currency_id: 'BRL',
-          unit_price: valorConvertido
-        }
-      ],
+      items: [{
+        title: 'Acesso ao cálculo da nota',
+        quantity: 1,
+        currency_id: 'BRL',
+        unit_price: valorConvertido
+      }],
       metadata: { userId },
       back_urls: {
         success: 'https://google.com?resultado=sucesso',
@@ -40,16 +37,15 @@ router.post('/gerar-pagamento', async (req, res) => {
       external_reference: userId
     };
 
-    // ⚠️ AQUI: o body precisa estar dentro de { body: ... }
     const result = await preference.create({ body: preferenceData });
+
+    if (!result || !result.body || !result.body.id || !result.body.init_point) {
+      console.error('❌ Resposta inválida do Mercado Pago:', result);
+      return res.status(500).json({ error: 'Erro na criação da preferência' });
+    }
 
     const preferenceId = result.body.id;
     const linkPagamento = result.body.init_point;
-
-    if (!preferenceId || !linkPagamento) {
-      console.error('❌ Resposta inválida do Mercado Pago:', result.body);
-      return res.status(500).json({ error: 'Erro na criação da preferência' });
-    }
 
     await db.query(
       'INSERT INTO pagamentos (user_id, valor, status, preference_id) VALUES ($1, $2, $3, $4)',
@@ -63,6 +59,7 @@ router.post('/gerar-pagamento', async (req, res) => {
     return res.status(500).json({ error: 'Erro ao gerar pagamento' });
   }
 });
+
 
 // ✅ Verificar pagamento
 router.post('/verificar-pagamento', async (req, res) => {
