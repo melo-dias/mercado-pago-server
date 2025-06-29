@@ -105,13 +105,15 @@ router.post('/gerar-pagamento',
       console.log('📋 PREFERÊNCIA PREPARADA:', { 
         valor, 
         userId,
-        notification_url: preferenceData.notification_url 
+        notification_url: preferenceData.notification_url,
+        back_urls: preferenceData.back_urls
       });
       
       logger.info('📋 Dados da preferência preparados:', { 
         valor, 
         userId,
-        notification_url: preferenceData.notification_url 
+        notification_url: preferenceData.notification_url,
+        back_urls: preferenceData.back_urls
       });
 
       console.log('🔄 CHAMANDO API DO MP...');
@@ -124,7 +126,8 @@ router.post('/gerar-pagamento',
         hasBody: !!result?.body,
         hasId: !!result?.body?.id,
         hasInitPoint: !!result?.body?.init_point,
-        hasSandboxInitPoint: !!result?.body?.sandbox_init_point
+        hasSandboxInitPoint: !!result?.body?.sandbox_init_point,
+        status: result?.body?.api_response?.status
       });
 
       logger.info('📥 Resposta do Mercado Pago recebida:', {
@@ -132,7 +135,8 @@ router.post('/gerar-pagamento',
         hasBody: !!result?.body,
         hasId: !!result?.body?.id,
         hasInitPoint: !!result?.body?.init_point,
-        hasSandboxInitPoint: !!result?.body?.sandbox_init_point
+        hasSandboxInitPoint: !!result?.body?.sandbox_init_point,
+        status: result?.body?.api_response?.status
       });
 
       if (!result || !result.body || !result.body.id) {
@@ -161,6 +165,9 @@ router.post('/gerar-pagamento',
           message: 'Link de pagamento não encontrado na resposta'
         });
       }
+
+      console.log('✅ LINK DE PAGAMENTO OBTIDO:', linkPagamento);
+      logger.info('✅ Link de pagamento obtido:', { linkPagamento });
 
       console.log('💾 SALVANDO NO BANCO...');
       logger.info('💾 Salvando no banco de dados...');
