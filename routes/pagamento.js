@@ -46,35 +46,34 @@ router.post('/gerar-pagamento', async (req, res) => {
       return res.status(400).json({ error: 'Parâmetros inválidos: userId ou valor' });
     }
 
+    // ✅ Criação da preferência no Mercado Pago (sem "body")
     const result = await preference.create({
-      body: {
-        items: [
-          {
-            title: 'Acesso ao cálculo da nota',
-            quantity: 1,
-            currency_id: 'BRL',
-            unit_price: valorConvertido // agora com validação garantida
-          }
-        ],
-        metadata: { userId },
-        back_urls: {
-          success: 'https://google.com?resultado=sucesso',
-          failure: 'https://google.com?resultado=erro',
-          pending: 'https://google.com?resultado=pendente'
-        },
-        auto_return: 'approved',
-        external_reference: userId
-      }
+      items: [
+        {
+          title: 'Acesso ao cálculo da nota',
+          quantity: 1,
+          currency_id: 'BRL',
+          unit_price: valorConvertido
+        }
+      ],
+      metadata: { userId },
+      back_urls: {
+        success: 'https://google.com?resultado=sucesso',
+        failure: 'https://google.com?resultado=erro',
+        pending: 'https://google.com?resultado=pendente'
+      },
+      auto_return: 'approved',
+      external_reference: userId
     });
 
-    // ✅ Verificação de retorno do Mercado Pago
-    if (!result?.body?.id || !result?.body?.init_point) {
+    // ✅ Verificação de retorno da preferência
+    if (!result?.id || !result?.init_point) {
       console.error('❌ Resposta inválida do Mercado Pago:', result);
       return res.status(500).json({ error: 'Erro na criação da preferência' });
     }
 
-    const preferenceId = result.body.id;
-    const linkPagamento = result.body.init_point;
+    const preferenceId = result.id;
+    const linkPagamento = result.init_point;
 
     // ✅ Salvar no banco
     await db.query(
@@ -89,6 +88,7 @@ router.post('/gerar-pagamento', async (req, res) => {
     return res.status(500).json({ error: 'Erro ao gerar pagamento' });
   }
 });
+
 
 
 // 👉 Webhook Mercado Pago (atualiza status no banco)
