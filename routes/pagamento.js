@@ -90,30 +90,38 @@ router.post('/gerar-pagamento',
           unit_price: valor
         }],
         back_urls: {
-          success: process.env.SUCCESS_URL || 'https://calculadora-aeronautica.vercel.app/pagamento/sucesso',
-          failure: process.env.FAILURE_URL || 'https://calculadora-aeronautica.vercel.app/pagamento/erro',
-          pending: process.env.PENDING_URL || 'https://calculadora-aeronautica.vercel.app/pagamento/pendente'
+          success: 'https://calculadora-aeronautica.vercel.app/pagamento/sucesso',
+          failure: 'https://calculadora-aeronautica.vercel.app/pagamento/erro',
+          pending: 'https://calculadora-aeronautica.vercel.app/pagamento/pendente'
         },
         auto_return: 'approved',
-        notification_url: process.env.WEBHOOK_URL || 'https://mercado-pago-server-production.up.railway.app/api/webhook',
+        notification_url: 'https://mercado-pago-server-production.up.railway.app/api/webhook',
         external_reference: userId,
         metadata: { userId },
         expires: true,
-        expiration_date_to: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 horas
+        expiration_date_to: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 horas
+        // ✅ FORÇAR PRODUÇÃO
+        site_id: 'MLB',
+        payment_methods: {
+          excluded_payment_methods: [],
+          excluded_payment_types: []
+        }
       };
 
       console.log('📋 PREFERÊNCIA PREPARADA:', { 
         valor, 
         userId,
         notification_url: preferenceData.notification_url,
-        back_urls: preferenceData.back_urls
+        back_urls: preferenceData.back_urls,
+        site_id: preferenceData.site_id
       });
       
       logger.info('📋 Dados da preferência preparados:', { 
         valor, 
         userId,
         notification_url: preferenceData.notification_url,
-        back_urls: preferenceData.back_urls
+        back_urls: preferenceData.back_urls,
+        site_id: preferenceData.site_id
       });
 
       console.log('🔄 CHAMANDO API DO MP...');
@@ -127,7 +135,8 @@ router.post('/gerar-pagamento',
         hasId: !!result?.body?.id,
         hasInitPoint: !!result?.body?.init_point,
         hasSandboxInitPoint: !!result?.body?.sandbox_init_point,
-        status: result?.body?.api_response?.status
+        status: result?.body?.api_response?.status,
+        siteId: result?.body?.site_id
       });
 
       logger.info('📥 Resposta do Mercado Pago recebida:', {
@@ -136,9 +145,11 @@ router.post('/gerar-pagamento',
         hasId: !!result?.body?.id,
         hasInitPoint: !!result?.body?.init_point,
         hasSandboxInitPoint: !!result?.body?.sandbox_init_point,
-        status: result?.body?.api_response?.status
+        status: result?.body?.api_response?.status,
+        siteId: result?.body?.site_id
       });
 
+      // ✅ CORREÇÃO: Validação mais flexível da resposta
       if (!result || !result.body || !result.body.id) {
         console.error('❌ RESPOSTA INVÁLIDA - Sem ID:', result);
         logger.error('❌ Resposta inválida do Mercado Pago - Sem ID:', {
@@ -152,6 +163,7 @@ router.post('/gerar-pagamento',
       }
 
       const preferenceId = result.body.id;
+      // ✅ CORREÇÃO: Priorizar init_point, mas aceitar sandbox_init_point se necessário
       const linkPagamento = result.body.init_point || result.body.sandbox_init_point;
 
       if (!linkPagamento) {
@@ -168,6 +180,12 @@ router.post('/gerar-pagamento',
 
       console.log('✅ LINK DE PAGAMENTO OBTIDO:', linkPagamento);
       logger.info('✅ Link de pagamento obtido:', { linkPagamento });
+
+      // ✅ AVISO: Se está usando sandbox em produção
+      if (linkPagamento.includes('sandbox')) {
+        console.warn('⚠️ ATENÇÃO: Usando link sandbox em produção!');
+        logger.warn('⚠️ ATENÇÃO: Usando link sandbox em produção!', { linkPagamento });
+      }
 
       console.log('💾 SALVANDO NO BANCO...');
       logger.info('💾 Salvando no banco de dados...');
