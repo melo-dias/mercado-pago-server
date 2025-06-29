@@ -1,0 +1,371 @@
+{
+  "info": {
+    "name": "Mercado Pago Server - Calculadora Aeronáutica",
+    "description": "Coleção de testes para o servidor de pagamentos da Calculadora Aeronáutica",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://seu-app.railway.app",
+      "type": "string"
+    },
+    {
+      "key": "api_base",
+      "value": "{{base_url}}/api",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "user123",
+      "type": "string"
+    },
+    {
+      "key": "preference_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "noauth"
+  },
+  "item": [
+    {
+      "name": "🔍 Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/health",
+          "host": ["{{base_url}}"],
+          "path": ["health"]
+        },
+        "description": "Verifica se o servidor está funcionando"
+      },
+      "response": []
+    },
+    {
+      "name": "💰 Gerar Pagamento",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"valor\": 29.90\n}"
+        },
+        "url": {
+          "raw": "{{api_base}}/gerar-pagamento",
+          "host": ["{{api_base}}"],
+          "path": ["gerar-pagamento"]
+        },
+        "description": "Gera um novo pagamento no Mercado Pago"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "// Teste para verificar se a resposta é válida",
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response has success field\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.success).to.eql(true);",
+              "});",
+              "",
+              "pm.test(\"Response has linkPagamento\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.data.linkPagamento).to.be.a('string');",
+              "    pm.expect(jsonData.data.linkPagamento).to.include('mercadopago.com.br');",
+              "});",
+              "",
+              "pm.test(\"Response has preferenceId\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.data.preferenceId).to.be.a('string');",
+              "    pm.expect(jsonData.data.preferenceId).to.not.be.empty;",
+              "});",
+              "",
+              "// Salvar o preferenceId para usar em outros testes",
+              "if (pm.response.code === 200) {",
+              "    var jsonData = pm.response.json();",
+              "    pm.collectionVariables.set(\"preference_id\", jsonData.data.preferenceId);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "🔍 Verificar Pagamento",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"preferenceId\": \"{{preference_id}}\"\n}"
+        },
+        "url": {
+          "raw": "{{api_base}}/verificar-pagamento",
+          "host": ["{{api_base}}"],
+          "path": ["verificar-pagamento"]
+        },
+        "description": "Verifica o status de um pagamento específico"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response has success field\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.success).to.eql(true);",
+              "});",
+              "",
+              "pm.test(\"Response has status field\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.data.status).to.be.a('string');",
+              "});",
+              "",
+              "pm.test(\"Status is valid\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    var validStatuses = ['pendente', 'approved', 'rejected', 'cancelled'];",
+              "    pm.expect(validStatuses).to.include(jsonData.data.status);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "📊 Salvar Cálculo",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"dp\": 85.5,\n  \"cfsd\": 78.2,\n  \"nep\": 92.0,\n  \"dem\": 0,\n  \"resultado\": 87.8\n}"
+        },
+        "url": {
+          "raw": "{{api_base}}/salvar-calculo",
+          "host": ["{{api_base}}"],
+          "path": ["salvar-calculo"]
+        },
+        "description": "Salva um novo cálculo no banco de dados"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response has success field\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.success).to.eql(true);",
+              "});",
+              "",
+              "pm.test(\"Response has message field\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.message).to.be.a('string');",
+              "    pm.expect(jsonData.message).to.include('salvo');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "📋 Listar Histórico de Cálculos",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{api_base}}/calculos/{{user_id}}",
+          "host": ["{{api_base}}"],
+          "path": ["calculos", "{{user_id}}"]
+        },
+        "description": "Lista o histórico de cálculos de um usuário específico"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response has success field\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.success).to.eql(true);",
+              "});",
+              "",
+              "pm.test(\"Response has data array\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.data).to.be.an('array');",
+              "});",
+              "",
+              "pm.test(\"Data items have required fields\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    if (jsonData.data.length > 0) {",
+              "        var item = jsonData.data[0];",
+              "        pm.expect(item).to.have.property('date');",
+              "        pm.expect(item).to.have.property('result');",
+              "        pm.expect(item).to.have.property('details');",
+              "    }",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "🗑️ Excluir Histórico de Cálculos",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{api_base}}/calculos/{{user_id}}",
+          "host": ["{{api_base}}"],
+          "path": ["calculos", "{{user_id}}"]
+        },
+        "description": "Exclui todo o histórico de cálculos de um usuário"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response has success field\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.success).to.eql(true);",
+              "});",
+              "",
+              "pm.test(\"Response has deletedCount\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.data.deletedCount).to.be.a('number');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "🔔 Webhook Mercado Pago (Simulado)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"payment.updated\",\n  \"data\": {\n    \"id\": 123456789\n  }\n}"
+        },
+        "url": {
+          "raw": "{{api_base}}/webhook",
+          "host": ["{{api_base}}"],
+          "path": ["webhook"]
+        },
+        "description": "Simula um webhook do Mercado Pago (para teste)"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response has success field\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.success).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "❌ Teste de Validação - Dados Inválidos",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": \"\",\n  \"valor\": -10\n}"
+        },
+        "url": {
+          "raw": "{{api_base}}/gerar-pagamento",
+          "host": ["{{api_base}}"],
+          "path": ["gerar-pagamento"]
+        },
+        "description": "Testa a validação com dados inválidos"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 400\", function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test(\"Response has error field\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.error).to.be.a('string');",
+              "});",
+              "",
+              "pm.test(\"Response has details field\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.details).to.be.an('array');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    }
+  ]
+} 
