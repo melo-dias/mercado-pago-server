@@ -40,42 +40,41 @@ router.post('/gerar-pagamento', async (req, res) => {
   const { userId, valor } = req.body;
 
   try {
-    // ✅ Validação dos parâmetros
     const valorConvertido = parseFloat(valor);
     if (!userId || isNaN(valorConvertido)) {
       return res.status(400).json({ error: 'Parâmetros inválidos: userId ou valor' });
     }
 
-    // ✅ Criação da preferência no Mercado Pago (sem "body")
     const result = await preference.create({
-      items: [
-        {
-          title: 'Acesso ao cálculo da nota',
-          quantity: 1,
-          currency_id: 'BRL',
-          unit_price: valorConvertido
-        }
-      ],
-      metadata: { userId },
-      back_urls: {
-        success: 'https://google.com?resultado=sucesso',
-        failure: 'https://google.com?resultado=erro',
-        pending: 'https://google.com?resultado=pendente'
-      },
-      auto_return: 'approved',
-      external_reference: userId
+      body: {
+        items: [
+          {
+            title: 'Acesso ao cálculo da nota',
+            quantity: 1,
+            currency_id: 'BRL',
+            unit_price: valorConvertido
+          }
+        ],
+        metadata: { userId },
+        back_urls: {
+          success: 'https://google.com?resultado=sucesso',
+          failure: 'https://google.com?resultado=erro',
+          pending: 'https://google.com?resultado=pendente'
+        },
+        auto_return: 'approved',
+        external_reference: userId
+      }
     });
 
-    // ✅ Verificação de retorno da preferência
-    if (!result?.id || !result?.init_point) {
+    // Acessando os dados corretamente
+    const preferenceId = result.body.id;
+    const linkPagamento = result.body.init_point;
+
+    if (!preferenceId || !linkPagamento) {
       console.error('❌ Resposta inválida do Mercado Pago:', result);
       return res.status(500).json({ error: 'Erro na criação da preferência' });
     }
 
-    const preferenceId = result.id;
-    const linkPagamento = result.init_point;
-
-    // ✅ Salvar no banco
     await db.query(
       'INSERT INTO pagamentos (user_id, valor, status, preference_id) VALUES ($1, $2, $3, $4)',
       [userId, valorConvertido, 'pendente', preferenceId]
@@ -88,6 +87,7 @@ router.post('/gerar-pagamento', async (req, res) => {
     return res.status(500).json({ error: 'Erro ao gerar pagamento' });
   }
 });
+
 
 
 
