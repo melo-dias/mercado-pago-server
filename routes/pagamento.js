@@ -58,7 +58,6 @@ const checkDbConnection = async (req, res, next) => {
 
 // ✅ Rota para gerar pagamento (MELHORADA)
 router.post('/gerar-pagamento', 
-  checkDbConnection,
   validate('gerarPagamento'),
   async (req, res) => {
     const { userId, valor } = req.body;
