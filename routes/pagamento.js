@@ -38,15 +38,24 @@ router.post('/verificar-pagamento', async (req, res) => {
 
 router.post('/gerar-pagamento', async (req, res) => {
   const { userId, valor } = req.body;
+
   try {
+    // ✅ Validação dos parâmetros
+    const valorConvertido = parseFloat(valor);
+    if (!userId || isNaN(valorConvertido)) {
+      return res.status(400).json({ error: 'Parâmetros inválidos: userId ou valor' });
+    }
+
     const result = await preference.create({
       body: {
-        items: [{
-          title: 'Acesso ao cálculo da nota',
-          quantity: 1,
-          currency_id: 'BRL',
-          unit_price: parseFloat(valor)
-        }],
+        items: [
+          {
+            title: 'Acesso ao cálculo da nota',
+            quantity: 1,
+            currency_id: 'BRL',
+            unit_price: valorConvertido // agora com validação garantida
+          }
+        ],
         metadata: { userId },
         back_urls: {
           success: 'https://google.com?resultado=sucesso',
@@ -58,18 +67,26 @@ router.post('/gerar-pagamento', async (req, res) => {
       }
     });
 
+    // ✅ Verificação de retorno do Mercado Pago
+    if (!result?.body?.id || !result?.body?.init_point) {
+      console.error('❌ Resposta inválida do Mercado Pago:', result);
+      return res.status(500).json({ error: 'Erro na criação da preferência' });
+    }
+
     const preferenceId = result.body.id;
     const linkPagamento = result.body.init_point;
 
+    // ✅ Salvar no banco
     await db.query(
       'INSERT INTO pagamentos (user_id, valor, status, preference_id) VALUES ($1, $2, $3, $4)',
-      [userId, valor, 'pendente', preferenceId]
+      [userId, valorConvertido, 'pendente', preferenceId]
     );
 
-    res.json({ linkPagamento, preferenceId });
+    return res.json({ linkPagamento, preferenceId });
+
   } catch (err) {
-    console.error('Erro ao gerar pagamento:', err);
-    res.status(500).json({ error: 'Erro ao gerar pagamento' });
+    console.error('❌ Erro ao gerar pagamento:', err);
+    return res.status(500).json({ error: 'Erro ao gerar pagamento' });
   }
 });
 
