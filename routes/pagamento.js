@@ -1,14 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { MercadoPagoConfig, Preference } = require('mercadopago');
-const db = require('../lib/db'); // conexão PostgreSQL
+const mercadopago = require('mercadopago');
+const db = require('../lib/db');
 const fetch = require('node-fetch');
 
-const client = new MercadoPagoConfig({
-  accessToken: process.env.MP_TOKEN || 'SUA_CHAVE_DO_MERCADO_PAGO',
+// Configurar o SDK corretamente para v2.8.0
+mercadopago.configure({
+  access_token: process.env.MP_TOKEN || 'SUA_CHAVE_DO_MERCADO_PAGO',
 });
-
-const preference = new Preference(client);
 
 // ✅ Verificar pagamento
 router.post('/verificar-pagamento', async (req, res) => {
@@ -34,7 +33,8 @@ router.post('/verificar-pagamento', async (req, res) => {
     return res.status(500).json({ error: 'Erro interno' });
   }
 });
-//Gerar Pagamento
+
+// ✅ Gerar pagamento
 router.post('/gerar-pagamento', async (req, res) => {
   const { userId, valor } = req.body;
 
@@ -63,14 +63,13 @@ router.post('/gerar-pagamento', async (req, res) => {
       external_reference: userId
     };
 
-    const result = await preference.create(preferenceData);
+    const result = await mercadopago.preferences.create(preferenceData);
 
-    // ✅ Uso correto
-    const preferenceId = result.id;
-    const linkPagamento = result.init_point;
+    const preferenceId = result.body.id;
+    const linkPagamento = result.body.init_point;
 
     if (!preferenceId || !linkPagamento) {
-      console.error('Resposta inválida do Mercado Pago:', result);
+      console.error('❌ Resposta inválida do Mercado Pago:', result.body);
       return res.status(500).json({ error: 'Erro na criação da preferência' });
     }
 
@@ -82,7 +81,7 @@ router.post('/gerar-pagamento', async (req, res) => {
     return res.json({ linkPagamento, preferenceId });
 
   } catch (err) {
-    console.error('Erro ao gerar pagamento:', err);
+    console.error('❌ Erro ao gerar pagamento:', err);
     return res.status(500).json({ error: 'Erro ao gerar pagamento' });
   }
 });
