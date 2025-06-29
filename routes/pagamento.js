@@ -20,23 +20,28 @@ router.post('/gerar-pagamento', async (req, res) => {
       return res.status(400).json({ error: 'Parâmetros inválidos: userId ou valor' });
     }
 
-          const preferenceData = {
-        items: [{
-          title: 'Acesso ao cálculo da nota',
-          quantity: 1,
-          currency_id: 'BRL',
-          unit_price: valorConvertido
-        }],
-        metadata: { userId },
-        back_urls: {
-          success: 'https://cauculadora-aeronautica.vercel.app/pagamento/sucesso',
-          failure: 'https://cauculadora-aeronautica.vercel.app/pagamento/erro',
-          pending: 'https://cauculadora-aeronautica.vercel.app/pagamento/pendente'
-        },
-        notification_url: 'https://mercado-pago-server-production.up.railway.app/api/webhook',
-        auto_return: 'approved',
-        external_reference: userId
-      };
+    const preferenceData = {
+      items: [{
+        title: 'Acesso ao cálculo da nota',
+        quantity: 1,
+        currency_id: 'BRL',
+        unit_price: valorConvertido
+      }],
+      metadata: { userId },
+
+      // ✅ URLs corrigidas (sem erro de digitação)
+      back_urls: {
+        success: 'https://calculadora-aeronautica.vercel.app/pagamento/sucesso',
+        failure: 'https://calculadora-aeronautica.vercel.app/pagamento/erro',
+        pending: 'https://calculadora-aeronautica.vercel.app/pagamento/pendente'
+      },
+
+      // ✅ URL real de webhook
+      notification_url: 'https://mercado-pago-server-production.up.railway.app/api/webhook',
+
+      auto_return: 'approved',
+      external_reference: userId
+    };
 
     const result = await preference.create({ body: preferenceData });
 
@@ -60,6 +65,7 @@ router.post('/gerar-pagamento', async (req, res) => {
     return res.status(500).json({ error: 'Erro ao gerar pagamento' });
   }
 });
+
 
 
 // ✅ Verificar pagamento
