@@ -34,8 +34,7 @@ router.post('/verificar-pagamento', async (req, res) => {
     return res.status(500).json({ error: 'Erro interno' });
   }
 });
-
-// ✅ Gerar pagamento (CORRIGIDO)
+//Gerar Pagamento
 router.post('/gerar-pagamento', async (req, res) => {
   const { userId, valor } = req.body;
 
@@ -66,11 +65,12 @@ router.post('/gerar-pagamento', async (req, res) => {
 
     const result = await preference.create(preferenceData);
 
+    // ✅ Uso correto
     const preferenceId = result.id;
     const linkPagamento = result.init_point;
 
     if (!preferenceId || !linkPagamento) {
-      console.error('❌ Resposta inválida do Mercado Pago:', result);
+      console.error('Resposta inválida do Mercado Pago:', result);
       return res.status(500).json({ error: 'Erro na criação da preferência' });
     }
 
@@ -82,7 +82,7 @@ router.post('/gerar-pagamento', async (req, res) => {
     return res.json({ linkPagamento, preferenceId });
 
   } catch (err) {
-    console.error('❌ Erro ao gerar pagamento:', err);
+    console.error('Erro ao gerar pagamento:', err);
     return res.status(500).json({ error: 'Erro ao gerar pagamento' });
   }
 });
