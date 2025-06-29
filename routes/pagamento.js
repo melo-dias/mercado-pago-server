@@ -10,7 +10,7 @@ const client = new MercadoPagoConfig({
 
 const preference = new Preference(client);
 
-// ✅ Verificar pagamento por preference_id
+// ✅ Verificar pagamento
 router.post('/verificar-pagamento', async (req, res) => {
   const { preferenceId } = req.body;
 
@@ -25,7 +25,7 @@ router.post('/verificar-pagamento', async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.json({ status: 'pendente' }); // ou 'nao_encontrado'
+      return res.json({ status: 'pendente' });
     }
 
     return res.json({ status: result.rows[0].status });
@@ -35,7 +35,7 @@ router.post('/verificar-pagamento', async (req, res) => {
   }
 });
 
-
+// ✅ Gerar pagamento (CORRIGIDO)
 router.post('/gerar-pagamento', async (req, res) => {
   const { userId, valor } = req.body;
 
@@ -45,30 +45,29 @@ router.post('/gerar-pagamento', async (req, res) => {
       return res.status(400).json({ error: 'Parâmetros inválidos: userId ou valor' });
     }
 
-    const result = await preference.create({
-      body: {
-        items: [
-          {
-            title: 'Acesso ao cálculo da nota',
-            quantity: 1,
-            currency_id: 'BRL',
-            unit_price: valorConvertido
-          }
-        ],
-        metadata: { userId },
-        back_urls: {
-          success: 'https://google.com?resultado=sucesso',
-          failure: 'https://google.com?resultado=erro',
-          pending: 'https://google.com?resultado=pendente'
-        },
-        auto_return: 'approved',
-        external_reference: userId
-      }
-    });
+    const preferenceData = {
+      items: [
+        {
+          title: 'Acesso ao cálculo da nota',
+          quantity: 1,
+          currency_id: 'BRL',
+          unit_price: valorConvertido
+        }
+      ],
+      metadata: { userId },
+      back_urls: {
+        success: 'https://google.com?resultado=sucesso',
+        failure: 'https://google.com?resultado=erro',
+        pending: 'https://google.com?resultado=pendente'
+      },
+      auto_return: 'approved',
+      external_reference: userId
+    };
 
-    // Acessando os dados corretamente
-    const preferenceId = result.body.id;
-    const linkPagamento = result.body.init_point;
+    const result = await preference.create(preferenceData);
+
+    const preferenceId = result.id;
+    const linkPagamento = result.init_point;
 
     if (!preferenceId || !linkPagamento) {
       console.error('❌ Resposta inválida do Mercado Pago:', result);
@@ -87,9 +86,6 @@ router.post('/gerar-pagamento', async (req, res) => {
     return res.status(500).json({ error: 'Erro ao gerar pagamento' });
   }
 });
-
-
-
 
 // 👉 Webhook Mercado Pago (atualiza status no banco)
 router.post('/webhook', async (req, res) => {
