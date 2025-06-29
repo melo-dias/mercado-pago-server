@@ -123,21 +123,23 @@ router.post('/gerar-pagamento',
         hasResult: !!result,
         hasBody: !!result?.body,
         hasId: !!result?.body?.id,
-        hasInitPoint: !!result?.body?.init_point
+        hasInitPoint: !!result?.body?.init_point,
+        hasSandboxInitPoint: !!result?.body?.sandbox_init_point
       });
 
       logger.info('📥 Resposta do Mercado Pago recebida:', {
         hasResult: !!result,
         hasBody: !!result?.body,
         hasId: !!result?.body?.id,
-        hasInitPoint: !!result?.body?.init_point
+        hasInitPoint: !!result?.body?.init_point,
+        hasSandboxInitPoint: !!result?.body?.sandbox_init_point
       });
 
-      if (!result || !result.body || !result.body.id || !result.body.init_point) {
-        console.error('❌ RESPOSTA INVÁLIDA:', result);
-        logger.error('❌ Resposta inválida do Mercado Pago:', {
+      if (!result || !result.body || !result.body.id) {
+        console.error('❌ RESPOSTA INVÁLIDA - Sem ID:', result);
+        logger.error('❌ Resposta inválida do Mercado Pago - Sem ID:', {
           result: JSON.stringify(result, null, 2),
-          error: 'Estrutura da resposta inválida'
+          error: 'Estrutura da resposta inválida - Sem ID'
         });
         return res.status(500).json({
           error: 'Erro na criação da preferência',
@@ -146,7 +148,19 @@ router.post('/gerar-pagamento',
       }
 
       const preferenceId = result.body.id;
-      const linkPagamento = result.body.init_point;
+      const linkPagamento = result.body.init_point || result.body.sandbox_init_point;
+
+      if (!linkPagamento) {
+        console.error('❌ RESPOSTA INVÁLIDA - Sem link de pagamento:', result.body);
+        logger.error('❌ Resposta inválida do Mercado Pago - Sem link:', {
+          result: JSON.stringify(result.body, null, 2),
+          error: 'Estrutura da resposta inválida - Sem link de pagamento'
+        });
+        return res.status(500).json({
+          error: 'Erro na criação da preferência',
+          message: 'Link de pagamento não encontrado na resposta'
+        });
+      }
 
       console.log('💾 SALVANDO NO BANCO...');
       logger.info('💾 Salvando no banco de dados...');
