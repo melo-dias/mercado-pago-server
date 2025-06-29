@@ -60,13 +60,18 @@ const checkDbConnection = async (req, res, next) => {
 router.post('/gerar-pagamento', 
   validate('gerarPagamento'),
   async (req, res) => {
-    const { userId, valor } = req.body;
+    console.log('🚀 ROTA INICIADA: Gerar pagamento');
     
     try {
+      const { userId, valor } = req.body;
+      
+      console.log('📋 DADOS RECEBIDOS:', { userId, valor });
+      
       logger.info('🚀 INICIANDO: Geração de pagamento', { userId, valor });
 
       // Validação adicional
       if (!process.env.MP_TOKEN) {
+        console.error('❌ TOKEN NÃO CONFIGURADO');
         logger.error('❌ ERRO: Token do Mercado Pago não configurado');
         return res.status(500).json({
           error: 'Configuração do servidor incompleta',
@@ -74,6 +79,7 @@ router.post('/gerar-pagamento',
         });
       }
 
+      console.log('✅ TOKEN CONFIGURADO');
       logger.info('✅ Token do MP encontrado, criando preferência...');
 
       const preferenceData = {
@@ -96,14 +102,29 @@ router.post('/gerar-pagamento',
         expiration_date_to: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 horas
       };
 
+      console.log('📋 PREFERÊNCIA PREPARADA:', { 
+        valor, 
+        userId,
+        notification_url: preferenceData.notification_url 
+      });
+      
       logger.info('📋 Dados da preferência preparados:', { 
         valor, 
         userId,
         notification_url: preferenceData.notification_url 
       });
 
+      console.log('🔄 CHAMANDO API DO MP...');
       logger.info('🔄 Chamando API do Mercado Pago...');
+      
       const result = await preference.create({ body: preferenceData });
+
+      console.log('📥 RESPOSTA RECEBIDA:', {
+        hasResult: !!result,
+        hasBody: !!result?.body,
+        hasId: !!result?.body?.id,
+        hasInitPoint: !!result?.body?.init_point
+      });
 
       logger.info('📥 Resposta do Mercado Pago recebida:', {
         hasResult: !!result,
@@ -113,6 +134,7 @@ router.post('/gerar-pagamento',
       });
 
       if (!result || !result.body || !result.body.id || !result.body.init_point) {
+        console.error('❌ RESPOSTA INVÁLIDA:', result);
         logger.error('❌ Resposta inválida do Mercado Pago:', {
           result: JSON.stringify(result, null, 2),
           error: 'Estrutura da resposta inválida'
@@ -126,6 +148,7 @@ router.post('/gerar-pagamento',
       const preferenceId = result.body.id;
       const linkPagamento = result.body.init_point;
 
+      console.log('💾 SALVANDO NO BANCO...');
       logger.info('💾 Salvando no banco de dados...');
       
       // Salvar no banco de dados
@@ -134,6 +157,7 @@ router.post('/gerar-pagamento',
         [userId, valor, 'pendente', preferenceId]
       );
 
+      console.log('✅ PAGAMENTO GERADO COM SUCESSO');
       logger.info('✅ Pagamento gerado com sucesso', { 
         userId, 
         preferenceId, 
@@ -153,11 +177,17 @@ router.post('/gerar-pagamento',
       });
 
     } catch (err) {
+      console.error('❌ ERRO CAPTURADO:', {
+        message: err.message,
+        stack: err.stack,
+        name: err.name
+      });
+      
       logger.error('❌ ERRO DETALHADO ao gerar pagamento:', {
         error: err.message,
         stack: err.stack,
-        userId,
-        valor,
+        userId: req.body?.userId,
+        valor: req.body?.valor,
         mpToken: process.env.MP_TOKEN ? 'CONFIGURADO' : 'NÃO CONFIGURADO',
         nodeEnv: process.env.NODE_ENV
       });
