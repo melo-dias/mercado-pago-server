@@ -35,10 +35,19 @@ const preference = new Preference(mp);
 
 // Middleware para verificar conexão com banco
 const checkDbConnection = async (req, res, next) => {
+  console.log('🔍 DB CONNECTION: Iniciando verificação de conexão com banco...');
+  
   try {
+    console.log('🔄 DB CONNECTION: Chamando testConnection()...');
     await testConnection();
+    console.log('✅ DB CONNECTION: Conexão com banco OK, prosseguindo...');
     next();
   } catch (error) {
+    console.error('❌ DB CONNECTION: Erro na conexão com banco:', {
+      error: error.message,
+      stack: error.stack
+    });
+    
     logger.error('Erro na conexão com banco de dados:', error);
     res.status(503).json({
       error: 'Serviço temporariamente indisponível',
